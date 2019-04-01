@@ -3,7 +3,7 @@
 
 ## Raspberry Pi 的启动过程
 
-Ref1: [Raspberry Pi Bootmodes Documentation](https://www.raspberrypi.org/documentation/hardware/raspberrypi/bootmodes/README.md)
+Ref: [Raspberry Pi Bootmodes Documentation](https://www.raspberrypi.org/documentation/hardware/raspberrypi/bootmodes/README.md)
 
 大致流程概括如下：
 - BCM2837 启动
@@ -17,9 +17,9 @@ Ref1: [Raspberry Pi Bootmodes Documentation](https://www.raspberrypi.org/documen
 
 ### bootcode.bin
 
-Ref2: [Licenses to `bootcode.bin`, `start*.elf` and `fixup*.dat`](https://github.com/raspberrypi/firmware/blob/master/boot/LICENCE.broadcom)   ~~Broadcom 并不开源，告辞~~
+Ref: [Licenses to `bootcode.bin`, `start*.elf` and `fixup*.dat`](https://github.com/raspberrypi/firmware/blob/master/boot/LICENCE.broadcom)   ~~Broadcom 并不开源，告辞~~
 
-Ref3: [Understanding RaspberryPi Boot Process](https://wiki.beyondlogic.org/index.php?title=Understanding_RaspberryPi_Boot_Process) （注意这个文章是针对 BCM2835 的，所以有点过时，不过似乎问题不大）
+Ref: [Understanding RaspberryPi Boot Process](https://wiki.beyondlogic.org/index.php?title=Understanding_RaspberryPi_Boot_Process) （注意这个文章是针对 BCM2835 的，所以有点过时，不过似乎问题不大）
 
 第二阶段的 bootloader（`bootcode.bin`） 运行在 GPU 上，用来装载`start.elf`。 
 
@@ -32,6 +32,8 @@ Ref3: [Understanding RaspberryPi Boot Process](https://wiki.beyondlogic.org/inde
 `config.txt`中所列设置可以参照[这个](https://www.raspberrypi.org/documentation/configuration/config-txt/)。
 
 ### 文件系统
+
+Ref: [Standalone partitioning explained](https://github.com/raspberrypi/noobs/wiki/Standalone-partitioning-explained)
 
 GPU 固件（Stage 1）应该是直接烧录进去的，所以不会有文件系统。
 
