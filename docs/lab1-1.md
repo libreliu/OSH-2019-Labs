@@ -43,6 +43,10 @@ GPU 固件（Stage 1）应该是直接烧录进去的，所以不会有文件系
 
 综上，一般将 SD 卡分为两个分区。
 
+---
+
+ps. 其实 Flash 层还要做 Wear levelling，所以底层会有一层文件系统实现，比如 UBIFS 和 YAFFS。但是 SD 卡这种 Managed Memory Device 内部的实现已经帮忙做好了，所以这层文件系统是透明的。
+
 ## Raspberry Pi 和主流计算机启动有何不同
 
 主流计算机的启动通常意味着复杂的初始化过程，这一复杂过程由 BIOS (Legacy / UEFI) 实现。
