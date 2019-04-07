@@ -53,7 +53,7 @@ ps. 其实 Flash 层还要做 Wear levelling，所以底层会有一层文件系
 
 Ref: [UEFI PI 分析](https://zhuanlan.zhihu.com/p/25941340)
 
-![UEFI PI](/home/libreliu/RDMA/Os/OSH-2019-Labs/docs/uefi_pi.jpg)
+![UEFI PI](uefi_pi.jpg)
 
 > 核心芯片初始化依赖于分阶段的方法。在初始系统复位时，仅有部分非常有限的硬件资源可用；不能访问设备，不能访问存储器等等限制。这才导致了随着硬件的初始化以及可用资源的增加，BIOS为软件的正常运行不断地改变操作环境。在PI中：
 >
