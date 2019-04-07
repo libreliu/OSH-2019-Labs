@@ -7,7 +7,7 @@
 ## `/dev/sdc1` 文件分析
 - `overlays/*`：Linux 内核中的 Device Tree Overlays，用于板级信息描述。有些只有二进制，没有源码。自己写裸机汇编的话，去掉没什么影响
 
-- `*.dtb`：也是 Device Tree Overlays
+- `*.dtb`：也是 Device Tree Overlays（不用 Linux 内核则没卵用）
 
 - `bootcode.bin`：Stage 2 Bootloader，必须
 
@@ -15,7 +15,7 @@
 
 - `fixup*.dat`：处理 VideoCore 显存的 Memory Split 的文件。如果不用对应的选项，应该不需要对应文件
 
-- `config.txt`：用来放选项的配置文件，必须
+- `config.txt`：用来放选项的配置文件，必须（删了就是默认配置了...）
 
 - `cmdline.txt`：用来放内核启动选项的配置文件，原则上因为我们的 bare-metal 不需要选项，可以置空/删除（起码可以置空）
 
