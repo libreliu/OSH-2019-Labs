@@ -26,7 +26,7 @@ inline pt_val PTNAMETYPE (std::string name, std::string type) {
 /* extern decl on pt_entry; exist in shell.cpp */
 extern pt_node_t pt_entry;
 %}
-
+/* %define parse.error verbose */
 %token  WORD
 %token  IO_NUMBER
 
@@ -42,9 +42,14 @@ extern pt_node_t pt_entry;
 
 %%
 
-entry            : simple_command  { printf("Entrypoint Reached.\n"); 
+entry            : pipe_sequence  { YALOG("Entrypoint Reached.\n"); 
                                      pt_entry = pt_mkchild($1, PTNAME("entry")); }
                  ;
+
+pipe_sequence    : simple_command { $$ = pt_mkchild($1, PTNAME("pipe_sequence")); }
+                 | pipe_sequence '|' simple_command { $$ = pt_merge($3, $1, -1); }
+                 ;
+
 
 cmd_prefix       :            io_redirect  { $$ = pt_mkchild($1, PTNAME("cmd_prefix")); }
                  | cmd_prefix io_redirect  { $$ = pt_merge($2, $1, -1); }
@@ -53,7 +58,7 @@ cmd_prefix       :            io_redirect  { $$ = pt_mkchild($1, PTNAME("cmd_pre
                  ;
 
 simple_command   : cmd_prefix cmd_word cmd_suffix  { 
-                     $$ = pt_merge( pt_merge(pt_mkchild($1, PTNAMETYPE("simple_command","prefix_word_suffix")), $2, -1), $3, -1); 
+                     $$ = pt_merge( $3, pt_merge($2, pt_mkchild($1, PTNAMETYPE("simple_command","prefix_word_suffix")), -1), -1); 
                     } 
                  | cmd_prefix cmd_word      { 
                      $$ = pt_merge($2, pt_mkchild($1, PTNAMETYPE("simple_command", "prefix_word")), -1); }
@@ -112,5 +117,5 @@ filename         : WORD                { $$ = pt_mkleaf(PTNAMEVAL("filename", $1
 
 int yyerror(char *msg) {
     printf("%s (lookahead token = %d)\n", msg, yychar);
-    return -1;
+    return 0;
 }

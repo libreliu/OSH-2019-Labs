@@ -13,17 +13,52 @@ pt_node_t pt_entry;
 
 
 int main(int argc, char *argv[]) {
-    YY_BUFFER_STATE buf;
+    if (argc == 2) {
+        YY_BUFFER_STATE buf;
+        int ret;
+        buf = yy_scan_string(argv[1]);
+        ret = yyparse();
+        yy_delete_buffer(buf);
+        #ifdef YASH_DEBUG
+            kptree::print_tree_bracketed<pt_val>(*(reinterpret_cast<tree<pt_val> *>(pt_entry)));
+            std::cout << "Run result:" << std::endl;
+        #endif
+        if (ret == 1) {
+            exit(255);
+            //TODO: Release all the new'ed trees (by overloading new[] op, maybe)
+        }
+        auto a = Shell(pt_entry);
+        a.run();
+        return 0;
+    }
+    //Interactive mode
+    char cmd_buf[1024];
+    int ret;
+    auto sh = Shell(NULL);
+    while (1) {
+        printf("# ");
+        fflush(NULL);
+        if (fgets(cmd_buf, 1024, stdin) == NULL) {
+            printf("exit\n");
+            break;
+        }
 
-    buf = yy_scan_string(argv[1]);
-    yyparse();
-    yy_delete_buffer(buf);
+        YY_BUFFER_STATE buf;
+        buf = yy_scan_string(cmd_buf);
+        ret = yyparse();
+        yy_delete_buffer(buf);
 
-    kptree::print_tree_bracketed<pt_val>(*(reinterpret_cast<tree<pt_val> *>(pt_entry)));
+        if (ret != 1) {  // Valid command
+            sh.pt = reinterpret_cast<tree<pt_val> *>(pt_entry);
+            sh.run();
+            sh.clear();
+        }
+    }
 
-    std::cout << "Run result:" << std::endl;
-    auto a = Shell(pt_entry);
-    a.run();
+
+
+
+    
     return 0;
 }
 

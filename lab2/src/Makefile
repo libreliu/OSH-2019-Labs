@@ -1,7 +1,7 @@
 .PHONY: clean
 
-CC = g++
-CXX = g++
+CC = g++ -g
+CXX = g++ -g
 
 yash: y.tab.c lex.yy.c shell.o pt.o executor.o
 	$(CC) -o y.tab.o -c y.tab.c

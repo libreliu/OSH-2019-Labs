@@ -6,6 +6,14 @@
 #include <map>
 #include "tree.hh"
 
+//#define YASH_DEBUG
+
+#ifdef YASH_DEBUG
+#define YALOG(fmt, ...) printf(fmt, ##__VA_ARGS__)
+#else
+#define YALOG(fmt, ...)  /* fmt */
+#endif
+
 typedef char *pt_type;
 typedef char *pt_node_t;
 
