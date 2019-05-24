@@ -6,6 +6,7 @@
 #define HTTP_WRITE_BUF 50000
 #define MAX_PATH_LEN 1024
 #define MAX_HOST_LEN 1024
+#define RWCYCLE_MAX_TRIES 5
 
 #include <sys/stat.h>
 #include <sys/epoll.h>
@@ -357,7 +358,7 @@ again:
             case SEND_RESPONSE_CONTENT:
                 LOG("entered SEND_RESPONSE_CONTENT for fd=%d", fd);
                 // Read to buf -> write buf -> read to buf -> write buf ...(MAXIMUM_M_TRIES)
-                for (;;) {
+                for (int tries = 0; tries < RWCYCLE_MAX_TRIES; tries++) {
                     LOG("%d %d",conns[fd].write_buf_sent, conns[fd].write_buf_offset);
                     int reached_eof = 0;
                     // Test if everything sent
