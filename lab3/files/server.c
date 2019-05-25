@@ -1,3 +1,5 @@
+#define _GNU_SOURCE         // Avoid complaining about sigaction() "Incomplete types"
+
 #define MAX_EVENTS 10
 #define MAX_CONN 1000
 #define BIND_IP_ADDR "0.0.0.0"
@@ -105,15 +107,23 @@ int path_valid(const char *src) {
 }
 
 void do_reject (int fd, const char *reason) {
+    if (conns[fd].type == SOCKFD) {
+        LOG("reject client ip=%s, fd=%d due to %s", inet_ntoa(conns[fd].clnt_addr.sin_addr), fd, reason);
+    } else {
+        LOG("reject client (FILEFD) fd=%d due to %s", fd, reason);
+    }
     zero_new_conn(fd);
-    LOG("rejecd client ip=%s, fd=%d due to %s", inet_ntoa(conns[fd].clnt_addr.sin_addr), fd, reason);
     close(fd); // Will automatically remove fd from epoll interest list
 }
 
 // Remote closed
 void do_close (int fd, const char *reason) {
+    if (conns[fd].type == SOCKFD) {
+        LOG("close client ip=%s, fd=%d due to %s", inet_ntoa(conns[fd].clnt_addr.sin_addr), fd, reason);
+    } else {
+        LOG("close client (FILEFD) fd=%d due to %s", fd, reason);
+    }
     zero_new_conn(fd);
-    LOG("closed client ip=%s, fd=%d due to %s", inet_ntoa(conns[fd].clnt_addr.sin_addr), fd, reason);
     close(fd); // Will automatically remove fd from epoll interest list
 }
 
@@ -447,6 +457,7 @@ int server_main() {
     /* Initialize Conn Structure */
     init();
     conns[listen_sock].state = LISTENING;
+
 
     /* Set SIGPIPE to avoid write() hang */
     struct sigaction nact;
