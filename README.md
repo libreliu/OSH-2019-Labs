@@ -3,6 +3,8 @@ Labs for USTC OS(H) 2019 Spring
 
 PB17000232 刘紫檀
 
+UPDATE 19/05/26: Lab3 done.
+
 UPDATE 19/05/04 pm 23:05: Lab2 commited (Sat May 4 22:59:12 2019 +0800) 
 
 UPDATE 19/05/04 am 02:04: Lab2 halfway there; Makefile needed to be fixed for path issues; Pipe parse in progress

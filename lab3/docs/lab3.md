@@ -21,49 +21,47 @@
     - 正常打开返回 200
     - 其它情况返回 500
   - `SEND_RESPONSE_HEADER`：发送响应头
-  - `SEND_RESPONSE_CONTENT`：进行「读文件」=>「写入套接字」=>「读文件」=>「写入套接字」...的循环，直到写完或 `read` error（且非 EAGAIN），关闭文件和套接字描述符
+  - `SEND_RESPONSE_CONTENT`：进行「读文件」=>「写入套接字」=>「读文件」=>「写入套接字」...的循环，直到写完或 `read` error（且非 EAGAIN）或达到最大循环次数（`RWCYCLE_MAX_TRIES`)，关闭文件和套接字描述符
+
+## 编译和运行方法
+```sh
+cmake .                 # I've set -O3 flag in CMakeLists.txt, no worry!
+make
+ulimit -Sn 10000        # (*optional*) Make sure this <= ~10000, or it'll SIGSEGV due to mem shortage
+						# if oom_reaper starts, toggle this value lower
+						# at 10000 it'll consume ~600MB of mem
+./RapidHTTP > /dev/null # Suppess output to improve performance (A great deal!)
+```
 
 ## 测试
-分别在 SSD 和 tmpfs 中进行了测试。
-- CPU: Intel(R) Core(TM) i5-3210M CPU @ 2.50GHz
-- Mem: Hynix DDR3-1600 4GiB * 2
-- System: ArchLinux Kernel 5.0.13-arch1-1-ARCH
-  - gcc 8.3.0
-  - nginx/1.16.0
+在 RPi 3B+ 上架设该服务器，通过（千兆）直连到另一台计算机进行测试。
 
-### SSD 测试
-- SSD: SAMSUNG 860-EVO 256GiB (@ SATA 2)
-  - 读取速度： 271.89 MB/sec (`sudo hdparm -t /dev/sdb1`)
-  - 测试分区： ext4
+因为 RPi 3B+ 的千兆以太网卡挂在 USB2.0 控制器上，所以性能略小于预期。
 
-用 `/dev/urandom` 产生 `testzero.txt`，`test1k.txt`，`test2k.txt`，`test4k.txt`，`test1M.txt` 和 `test512M.txt`。
+用 `/dev/urandom` 产生各个大小的测试文件。
 
-```
-[libreliu@thinkpad-ssd build]$ siege -c 1000 -r 100 http://127.0.0.1:8000/testzero.txt >/dev/null
-** SIEGE 4.0.4
-** Preparing 255 concurrent users for battle.
-The server is now under siege...
+使用 `siege -c 200 -r 20` 进行测试。
 
-Transactions:		       25500 hits
-Availability:		      100.00 %
-Elapsed time:		        8.60 secs
-Data transferred:	        0.00 MB
-Response time:		        0.06 secs
-Transaction rate:	     2965.12 trans/sec
-Throughput:		        0.00 MB/sec
-Concurrency:		      168.34
-Successful transactions:       25500
-Failed transactions:	           0
-Longest transaction:	        7.18
-Shortest transaction:	        0.00
-```
+测试结果如下表：
+
+> 格式说明：Availability / Trans. Rate / Throughput / Concurrency / Elapsed Time
+
+|      | RapidHTTP                                                    | Nginx                                                        |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 1K   | `100.00%` / `3305.78 trans/sec` / `3.23 MB/sec` / `191.19` / `1.21 secs` | `100.00%` / `2614.38 trans/sec` / `2.55 MB/sec` / `159.30` / `1.53 secs` |
+| 16K  | `100.00%` / `1007.56 trans/sec` / `15.74 MB/sec` / `193.29` / `3.97 secs` | `100.00%` / `980.39 trans/sec` / `15.32 MB/sec` / `197.51` / `4.08 secs` |
+| 256K | `100.00%` / `88.77 trans/sec` / `22.19 MB/sec` / `199.60` / `45.06 secs` | `100.00%` / `91.87 trans/sec` / `22.97 MB/sec` / `199.69` / `43.54 secs` |
+| 4M   | `100.00%` / `6.07 trans/sec` / `24.29 MB/sec` / `199.81` / `658.84 secs` | `100.00%` / `6.04 trans/sec` / `24.15 MB/sec` / `199.80` / `662.44 secs` |
+
+可以看到，在 200 并发下，RapidHTTP 与 Nginx 性能相当。
 
 ## 遇到的问题和解决方案
+
 1. `epoll` 无法跟踪普通文件
-  - 因为 POSIX 中明确规定普通文件的读写总是“阻塞”的，设置 `O_NONBLOCK` 等没有意义。
-  - 这样，如果不想因为文件操作阻塞，就只能开一个线程专门用于文件读写；本实现中为了实现的简洁暂时忽略。
+    - 因为 POSIX 中明确规定普通文件的读写总是“阻塞”的，设置 `O_NONBLOCK` 等没有意义。
+    - 这样，如果不想因为文件操作阻塞，就只能开一个线程专门用于文件读写，或采用 POSIX aio / AIO syscall；本实现中为了简洁暂时忽略。
 
 ## BUGS
-1. 在文件系统/磁盘响应较慢的情形下，服务可能响应缓慢
-  - 因为普通文件的读写总是“阻塞”的，而本实现没有采用多线程
-  - 降低一次处理的数据量（`RWCYCLE_MAX_TRIES`）可以减轻这个问题
+1. 在文件系统/磁盘响应较慢（比如 docroot 放在 U 盘上...）的情形下，服务可能响应缓慢
+    - 因为普通文件的读写总是“阻塞”的，而本实现没有采用多线程
+    - 降低一次处理的数据量（`RWCYCLE_MAX_TRIES`）可以减轻这个问题
