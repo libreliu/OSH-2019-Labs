@@ -3,7 +3,7 @@
 刘紫檀 PB17000232
 
 ## 实验设计
-在本实验中我实现了一个基于 epoll 调用的简易事件驱动高性能 HTTP 服务器。
+在本实验中我实现了一个基于 epoll 调用的简易事件驱动高性能 HTTP 服务器。epoll 用来监听网络请求时效率很高。
 
 - 对于每个文件描述符，在服务器启动时分配一个数据结构 `conn_info`，用来保存所有连接/文件相关信息
 - 服务器启动时注册 SIGPIPE 和 SIGINT 的信号处理，防止 bug （见源码）
@@ -30,7 +30,7 @@ make
 ulimit -Sn 10000        # (*optional*) Make sure this <= ~10000, or it'll SIGSEGV due to mem shortage
 						# if oom_reaper starts, toggle this value lower
 						# at 10000 it'll consume ~600MB of mem
-./RapidHTTP > /dev/null # Suppess output to improve performance (A great deal!)
+./server > /dev/null # Suppess output to improve performance (A great deal!)
 ```
 
 ## 测试
@@ -54,6 +54,21 @@ ulimit -Sn 10000        # (*optional*) Make sure this <= ~10000, or it'll SIGSEG
 | 4M   | `100.00%` / `6.07 trans/sec` / `24.29 MB/sec` / `199.81` / `658.84 secs` | `100.00%` / `6.04 trans/sec` / `24.15 MB/sec` / `199.80` / `662.44 secs` |
 
 可以看到，在 200 并发下，RapidHTTP 与 Nginx 性能相当。
+
+## 异常处理
+
+在 HTTP 请求中可能遇到各种各样的异常：
+
+1. 「已解决」对面提前关闭了连接
+   - 忽略 `SIGPIPE` 信号，并且检测 `write` 返回值来判断， 防止服务器接收信号后自动关闭
+2. 「已解决」对面发送垃圾信息（比如含 `\0` 的信息，以及不支持的 HTTP 方法）
+   - 不能假设没有 `\0`（所以不能直接用诸如 `strtok` 函数）；接收缓冲区满，却还不能成功解析请求则关闭连接
+3. 「未解决」对面发送速度过慢 / 不发送请求
+   - 跟踪每个连接的建立时间，对超过 `HTTP_TIMEOUT` 的连接直接关闭「**尚未实现**，犯懒了...」
+4. 「已解决」对面发送错误的路径（如 path escaping）
+   - 利用 getcwd 和 realpath 函数，比较两个正则路径前面的部分是否匹配
+   - 对于 realpath 无法跟踪的路径（比如不存在 / 权限问题），会 500
+   - （可以用 `printf "GET /../../../../../../../../proc/cpuinfo HTTP/1.0\r\n\r\n" | nc 127.0.0.1 8000` 测试）
 
 ## 遇到的问题和解决方案
 
