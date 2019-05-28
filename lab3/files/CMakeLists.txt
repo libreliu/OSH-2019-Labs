@@ -3,6 +3,7 @@ project(RapidHTTP VERSION 0.1.0)
 
 include(CTest)
 enable_testing()
+link_libraries(pthread)
 
 add_executable(server main.c server.c libsock.c)
 

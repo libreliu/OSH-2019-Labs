@@ -9,6 +9,9 @@
 #define MAX_PATH_LEN 1024
 #define MAX_HOST_LEN 1024
 #define RWCYCLE_MAX_TRIES 5
+#define HTTP_TIMEOUT 10
+#define HTTP_TIMEOUT_CHECK_INTERVAL 4
+#define HTTP_TIMEOUT_FINE_CYCLE   3
 
 #include <sys/stat.h>
 #include <sys/epoll.h>
@@ -19,12 +22,14 @@
 #include <sys/resource.h>
 #include <stdio.h>
 #include <signal.h>
+#include <time.h>
+#include <pthread.h>
 
 #include "libsock.h"
 
 typedef struct {
     enum {
-        SOCKFD, FILEFD
+        SOCKFD, FILEFD, NA
     } type;
     enum {
         // HTTP Ones
@@ -49,10 +54,14 @@ typedef struct {
     int netwrite_ready;
     int fileread_ready;
 
+    // time since conn allocated; to reduce impact on perf. we used this
+    time_t timestamp_last_active;
 } conn_info;
 
 static conn_info *conns; 
 static int conn_max;
+
+pthread_mutex_t conn_info_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void zero_new_conn(int fd) {
     conns[fd].get_path[0] = '\0';
@@ -66,7 +75,7 @@ void zero_new_conn(int fd) {
     conns[fd].state = NOT_ALLOCATED;
     conns[fd].netwrite_ready = 0;
     conns[fd].fileread_ready = 0;
-
+    conns[fd].type = NA;
 }
 
 int init() {
@@ -83,6 +92,53 @@ int init() {
         zero_new_conn(i);
     }
     conn_max = rlim.rlim_cur;
+}
+
+
+void *check_timeout(void *arg) {
+    time_t cur_time;
+    int fine_cycle = 0;
+    int *fd_interest = malloc(sizeof(int) * conn_max);
+    int fd_interest_size = 0;
+    for (;;) {
+        cur_time = time(NULL);
+
+        // Coarse check
+        for (int i = 0; i < conn_max; i++) {
+            if (conns[i].type == SOCKFD && (conns[i].state == WAIT_FOR_REQUEST_METHOD 
+            || conns[i].state == WAIT_FOR_REQUEST_CONTENT || conns[i].state == WAIT_FOR_REQUEST_END)
+            && cur_time - conns[i].timestamp_last_active > HTTP_TIMEOUT) {
+                printf("fd=%d timed out (coarse check), add to interest list\n", i);
+                fd_interest[fd_interest_size] = i;
+                fd_interest_size++;
+            }
+        }
+
+        fine_cycle++;
+        if (fine_cycle == HTTP_TIMEOUT_FINE_CYCLE) {            // Fine check
+            fine_cycle = 0;
+            if (fd_interest_size > 0) {
+                pthread_mutex_lock(&conn_info_mutex);
+                for (int i = 0; i < fd_interest_size; i++) {
+                    if (conns[fd_interest[i]].type == SOCKFD && 
+                    (conns[fd_interest[i]].state == WAIT_FOR_REQUEST_METHOD 
+                    || conns[fd_interest[i]].state == WAIT_FOR_REQUEST_CONTENT 
+                    || conns[fd_interest[i]].state == WAIT_FOR_REQUEST_END)
+                    && cur_time - conns[fd_interest[i]].timestamp_last_active > HTTP_TIMEOUT) {
+                        printf("fd=%d timed out (fine check), time=%d, close\n", fd_interest[i], cur_time - conns[fd_interest[i]].timestamp_last_active);
+                        close(fd_interest[i]);
+                        zero_new_conn(fd_interest[i]);
+                    } else {
+                        printf("fd=%d didn't time out (fine check), time=%d\n", fd_interest[i], cur_time - conns[fd_interest[i]].timestamp_last_active);
+                    }
+                }
+                fd_interest_size = 0;
+                pthread_mutex_unlock(&conn_info_mutex);
+            }
+        }
+        sleep(HTTP_TIMEOUT_CHECK_INTERVAL);
+    }
+    free(fd_interest);  // will never reach, though
 }
 
 // May return null if ENAMETOOLONG/EACCES/ENOENT
@@ -472,9 +528,14 @@ int server_main() {
        LOG("SIGINT Handler setup");
     }
 
+    /* Set pthread */
+    pthread_t tid;
+    if (pthread_create(&tid, NULL, check_timeout, NULL) != 0) {
+        LOG("error creating timeout checker.. exit");
+        exit(-1);
+    }
 
     /* Initialize epoll */
-
     epollfd = epoll_create1(0);
     if (epollfd == -1) {
         lsock_on_error("epoll_create1");
@@ -507,15 +568,18 @@ int server_main() {
                             &ev) == -1) {
                     lsock_on_error("epoll_ctl: conn_sock");
                 }
-
+                pthread_mutex_lock(&conn_info_mutex);
                 /* Initialize Connection Info */
                 conns[conn_sock].state = WAIT_FOR_REQUEST_METHOD;
                 conns[conn_sock].type  = SOCKFD;
                 conns[conn_sock].clnt_addr = clnt_addr;
-
+                conns[conn_sock].timestamp_last_active = time(NULL);
+                pthread_mutex_unlock(&conn_info_mutex);
             } else {
                 // Process FD that have inbound traffic
+                pthread_mutex_lock(&conn_info_mutex);
                 do_use_fd(events[n].data.fd, events[n].events, epollfd);
+                pthread_mutex_unlock(&conn_info_mutex);
             }
         }
     }

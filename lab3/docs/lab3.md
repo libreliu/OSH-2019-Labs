@@ -28,8 +28,8 @@
 cmake .                 # I've set -O3 flag in CMakeLists.txt, no worry!
 make
 ulimit -Sn 10000        # (*optional*) Make sure this <= ~10000, or it'll SIGSEGV due to mem shortage
-						# if oom_reaper starts, toggle this value lower
-						# at 10000 it'll consume ~600MB of mem
+                        # if oom_reaper starts, toggle this value lower
+                        # at 10000 it'll consume ~600MB of mem
 ./server > /dev/null # Suppess output to improve performance (A great deal!)
 ```
 
@@ -42,18 +42,22 @@ ulimit -Sn 10000        # (*optional*) Make sure this <= ~10000, or it'll SIGSEG
 
 使用 `siege -c 200 -r 20` 进行测试。
 
+测试时套接字软上限为 1024。
+
 测试结果如下表：
 
 > 格式说明：Availability / Trans. Rate / Throughput / Concurrency / Elapsed Time
 
 |      | RapidHTTP                                                    | Nginx                                                        |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 1K   | `100.00%` / `3305.78 trans/sec` / `3.23 MB/sec` / `191.19` / `1.21 secs` | `100.00%` / `2614.38 trans/sec` / `2.55 MB/sec` / `159.30` / `1.53 secs` |
-| 16K  | `100.00%` / `1007.56 trans/sec` / `15.74 MB/sec` / `193.29` / `3.97 secs` | `100.00%` / `980.39 trans/sec` / `15.32 MB/sec` / `197.51` / `4.08 secs` |
-| 256K | `100.00%` / `88.77 trans/sec` / `22.19 MB/sec` / `199.60` / `45.06 secs` | `100.00%` / `91.87 trans/sec` / `22.97 MB/sec` / `199.69` / `43.54 secs` |
-| 4M   | `100.00%` / `6.07 trans/sec` / `24.29 MB/sec` / `199.81` / `658.84 secs` | `100.00%` / `6.04 trans/sec` / `24.15 MB/sec` / `199.80` / `662.44 secs` |
+| 1K   | `100.00%` / `3603.60 trans/sec` / `3.52 MB/sec` / `190.41` / `1.11 secs` | `100.00%` / `2614.38 trans/sec` / `2.55 MB/sec` / `159.30` / `1.53 secs` |
+| 16K  | `100.00%` / `1114.21 trans/sec` / `17.41 MB/sec` / `190.16` / `3.59 secs` | `100.00%` / `980.39 trans/sec` / `15.32 MB/sec` / `197.51` / `4.08 secs` |
+| 256K | `100.00%` / `98.33 trans/sec` / `24.58 MB/sec` / `199.50` / `40.68 secs` | `100.00%` / `91.87 trans/sec` / `22.97 MB/sec` / `199.69` / `43.54 secs` |
+| 4M   | `100.00%` / `6.46 trans/sec` / `25.84 MB/sec` / `199.66` / `619.12 secs` | `100.00%` / `6.04 trans/sec` / `24.15 MB/sec` / `199.80` / `662.44 secs` |
 
 可以看到，在 200 并发下，RapidHTTP 与 Nginx 性能相当。
+
+> Nginx 的数据为 X server 占用较大内存时测试，可能失真。
 
 ## 异常处理
 
@@ -63,8 +67,8 @@ ulimit -Sn 10000        # (*optional*) Make sure this <= ~10000, or it'll SIGSEG
    - 忽略 `SIGPIPE` 信号，并且检测 `write` 返回值来判断， 防止服务器接收信号后自动关闭
 2. 「已解决」对面发送垃圾信息（比如含 `\0` 的信息，以及不支持的 HTTP 方法）
    - 不能假设没有 `\0`（所以不能直接用诸如 `strtok` 函数）；接收缓冲区满，却还不能成功解析请求则关闭连接
-3. 「未解决」对面发送速度过慢 / 不发送请求
-   - 跟踪每个连接的建立时间，对超过 `HTTP_TIMEOUT` 的连接直接关闭「**尚未实现**，犯懒了...」
+3. 「已解决」对面发送速度过慢 / 不发送请求
+   - 跟踪每个连接的建立时间，对超过 `HTTP_TIMEOUT` 的连接直接关闭；建立线程 `check_timeout` 每隔一段时间粗略检测一次（**不加锁**），如果有就**加锁**再 Close。
 4. 「已解决」对面发送错误的路径（如 path escaping）
    - 利用 getcwd 和 realpath 函数，比较两个正则路径前面的部分是否匹配
    - 对于 realpath 无法跟踪的路径（比如不存在 / 权限问题），会 500
