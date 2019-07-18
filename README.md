@@ -3,6 +3,14 @@ Labs for USTC OS(H) 2019 Spring
 
 PB17000232 刘紫檀
 
+## Feature
+- 在 Lab2 (Writing your own shell) 中使用 flex 和 bison 进行词法和语法分析
+  - Very robust! (除了输入缓冲长度问题）
+- 在 Lab3 中使用 EPOLL
+
+## Changelog
+UPDATE 19/07/18: Made public!
+
 UPDATE 19/05/26: Lab3 done.
 
 UPDATE 19/05/04 pm 23:05: Lab2 commited (Sat May 4 22:59:12 2019 +0800) 
