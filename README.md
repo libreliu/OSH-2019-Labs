@@ -5,7 +5,7 @@ PB17000232 刘紫檀
 
 ## Feature
 - 在 Lab2 (Writing your own shell) 中使用 flex 和 bison 进行词法和语法分析
-  - Very robust! (除了输入缓冲长度问题）
+  - Very robust! （除了输入缓冲长度问题）
 - 在 Lab3 中使用 EPOLL
 
 ## Changelog
